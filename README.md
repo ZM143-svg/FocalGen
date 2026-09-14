@@ -265,7 +265,7 @@ python main.py --config-name=dronecrowd restore_from_ckpt=/path/to/ckpt.ckpt
 | 梯度裁剪 | `gradient_clip_val=0.7` |
 | 早停 | `EarlyStopping(monitor=val_f1, mode=max, patience=20)` |
 | 模型保存 | `ModelCheckpoint(monitor=val_f1, filename='epoch_{epoch}-f1_{val_f1:.2f}')`，同时保存 `last` |
-| 日志 | CSVLogger（默认）+ NeptuneLogger（`debug=False` 时启用，需自行配置 API Token） |
+| 日志 | CSVLogger（始终启用）；NeptuneLogger 为可选，需设置环境变量 `NEPTUNE_API_TOKEN` 且 `debug=False` |
 
 训练输出（`checkpoints/`、`outputs/`、`results/`）已加入 `.gitignore`。
 

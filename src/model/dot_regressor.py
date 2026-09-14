@@ -169,15 +169,15 @@ class DotRegressor(pl.LightningModule):
         # if batch_idx == 0:
         #     print(f"\nEpoch {current_epoch} - 阶段: {current_stage}")
         if current_epoch < 10:
-            perturb_prob = 0.45  # 初期使用较低概率
+            perturb_prob = 0.5  # 初期使用较低概率
         elif current_epoch < 30:
-            perturb_prob = 0.65  # 中期提高概率
+            perturb_prob = 0.7  # 中期提高概率
         else:
-            perturb_prob = 0.35  # 后期稍微降低，专注于微调
-        # 应用光照扰动（仅在CSNorm训练模式下）
-        if self.use_csnorm:
-            self.perturb_generator = LightnessPerturbation(perturb_prob)
-            image = self.perturb_generator(image)
+            perturb_prob = 0.4  # 后期稍微降低，专注于微调
+        # # 应用光照扰动（仅在CSNorm训练模式下）
+        # if self.use_csnorm:
+        #     self.perturb_generator = LightnessPerturbation(perturb_prob)
+        #     image = self.perturb_generator(image)
 
         (out, out_x2, out_x4), attention_loss = self.forward(image, mask)
 
@@ -194,23 +194,24 @@ class DotRegressor(pl.LightningModule):
         # attention_loss = torch.tensor(0.0, device=image.device)
         if self.use_pd_attention:
             # attention_loss = getattr(self.network, 'pd_attention_loss', torch.tensor(0.0))
-            # 根据训练阶段调整注意力损失权重
-            if current_stage == 'attention_only':
-                # 注意力单独训练阶段，使用主要损失
-                loss = attention_loss * 1.0
-            elif current_stage == 'freeze_main':
-                # 冻结主网络阶段，仍然主要关注注意力损失
-                loss = attention_loss * self.pd_attention_loss_weight + main_loss * 0.2
-            elif current_stage == 'unfreeze_decoder':
-                loss = attention_loss * 0.2 + main_loss * 0.8
-            else:
-                # 联合训练阶段，平衡主损失和注意力损失
-                loss = main_loss + attention_loss * 0.1
+            # 联合训练：主损失 + 注意力监督损失
+            # （分阶段训练策略已停用，相关代码见下方注释）
+            loss = main_loss + attention_loss * 0.1
 
             # 记录注意力损失
             self.log('train_attention_loss', attention_loss, on_step=True, on_epoch=True, sync_dist=True)
         else:
             loss = main_loss
+
+        # ===== 以下为已停用的分阶段训练策略（current_stage 未定义，故不再使用）=====
+        # if current_stage == 'attention_only':
+        #     loss = attention_loss * 1.0
+        # elif current_stage == 'freeze_main':
+        #     loss = attention_loss * self.pd_attention_loss_weight + main_loss * 0.2
+        # elif current_stage == 'unfreeze_decoder':
+        #     loss = attention_loss * 0.2 + main_loss * 0.8
+        # else:
+        #     loss = main_loss + attention_loss * 0.1
 
         self.log('train_loss', loss, on_step=True, on_epoch=True, sync_dist=True)
         self.log('train_main_loss', main_loss, on_step=True, on_epoch=True, sync_dist=True)
@@ -427,13 +428,13 @@ class DotRegressor(pl.LightningModule):
                 optimizer,
                 start_factor=0.01,
                 end_factor=1.0,
-                total_iters=500
+                total_iters=1000
             )
 
             combined_scheduler = torch.optim.lr_scheduler.SequentialLR(
                 optimizer,
                 schedulers=[warmup_scheduler, scheduler],
-                milestones=[500]
+                milestones=[1000]
             )
 
             schedule = {
@@ -633,60 +634,60 @@ class DotRegressor(pl.LightningModule):
 
     #     return model
 
-    # def load_state_dict(self, state_dict, strict=True):
-    #     """重写load_state_dict方法以处理CSNorm权重不匹配"""
-    #     if self.use_csnorm:
-    #         # 过滤掉CSNorm相关的权重（如果检查点中没有）
-    #         model_state_dict = self.state_dict()
-    #         filtered_state_dict = {}
-    #
-    #         for k, v in state_dict.items():
-    #             if k in model_state_dict and model_state_dict[k].shape == v.shape:
-    #                 filtered_state_dict[k] = v
-    #             elif 'csnorm_modules' in k:
-    #                 print(f"跳过CSNorm权重: {k}")
-    #             else:
-    #                 print(f"跳过不匹配的权重: {k}")
-    #
-    #         # 使用非严格模式加载
-    #         return super().load_state_dict(filtered_state_dict, strict=False)
-    #     else:
-    #         return super().load_state_dict(state_dict, strict=strict)
-    #
-    # @classmethod
-    # def load_from_checkpoint(cls, checkpoint_path, **kwargs):
-    #     """重写load_from_checkpoint以处理CSNorm和PyTorch 2.6兼容性"""
-    #     # 先创建模型实例
-    #     model = cls(**kwargs)
-    #
-    #     # 关键修改：添加weights_only=False以兼容PyTorch 2.6
-    #     try:
-    #         checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
-    #     except Exception as e:
-    #         print(f"使用weights_only=False加载失败: {e}")
-    #         # 回退方案：尝试使用旧版加载方式
-    #         checkpoint = torch.load(checkpoint_path, map_location='cpu')
-    #
-    #     # 过滤状态字典
-    #     if model.use_csnorm:
-    #         model_state_dict = model.state_dict()
-    #         filtered_state_dict = {}
-    #
-    #         for k, v in checkpoint['state_dict'].items():
-    #             if k in model_state_dict and model_state_dict[k].shape == v.shape:
-    #                 filtered_state_dict[k] = v
-    #             elif 'csnorm_modules' in k:
-    #                 print(f"跳过CSNorm权重: {k}")
-    #             else:
-    #                 print(f"跳过不匹配的权重: {k}")
-    #
-    #         # 更新模型状态字典
-    #         model_state_dict.update(filtered_state_dict)
-    #         model.load_state_dict(model_state_dict, strict=False)
-    #
-    #         print(f"成功加载 {len(filtered_state_dict)} 个权重参数")
-    #     else:
-    #         model.load_state_dict(checkpoint['state_dict'], strict=True)
-    #
-    #     return model
+    def load_state_dict(self, state_dict, strict=True):
+        """重写load_state_dict方法以处理CSNorm权重不匹配"""
+        if self.use_csnorm:
+            # 过滤掉CSNorm相关的权重（如果检查点中没有）
+            model_state_dict = self.state_dict()
+            filtered_state_dict = {}
+    
+            for k, v in state_dict.items():
+                if k in model_state_dict and model_state_dict[k].shape == v.shape:
+                    filtered_state_dict[k] = v
+                elif 'csnorm_modules' in k:
+                    print(f"跳过CSNorm权重: {k}")
+                else:
+                    print(f"跳过不匹配的权重: {k}")
+    
+            # 使用非严格模式加载
+            return super().load_state_dict(filtered_state_dict, strict=False)
+        else:
+            return super().load_state_dict(state_dict, strict=strict)
+    
+    @classmethod
+    def load_from_checkpoint(cls, checkpoint_path, **kwargs):
+        """重写load_from_checkpoint以处理CSNorm和PyTorch 2.6兼容性"""
+        # 先创建模型实例
+        model = cls(**kwargs)
+    
+        # 关键修改：添加weights_only=False以兼容PyTorch 2.6
+        try:
+            checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
+        except Exception as e:
+            print(f"使用weights_only=False加载失败: {e}")
+            # 回退方案：尝试使用旧版加载方式
+            checkpoint = torch.load(checkpoint_path, map_location='cpu')
+    
+        # 过滤状态字典
+        if model.use_csnorm:
+            model_state_dict = model.state_dict()
+            filtered_state_dict = {}
+    
+            for k, v in checkpoint['state_dict'].items():
+                if k in model_state_dict and model_state_dict[k].shape == v.shape:
+                    filtered_state_dict[k] = v
+                elif 'csnorm_modules' in k:
+                    print(f"跳过CSNorm权重: {k}")
+                else:
+                    print(f"跳过不匹配的权重: {k}")
+    
+            # 更新模型状态字典
+            model_state_dict.update(filtered_state_dict)
+            model.load_state_dict(model_state_dict, strict=False)
+    
+            print(f"成功加载 {len(filtered_state_dict)} 个权重参数")
+        else:
+            model.load_state_dict(checkpoint['state_dict'], strict=True)
+    
+        return model
 

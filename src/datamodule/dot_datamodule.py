@@ -30,7 +30,8 @@ class DotDatamodule(LightningDataModule):
         super().__init__()
 
         self.root_data_path = root_data_path
-        self.dataset = dataset
+        # 统一小写并去除首尾空白，避免配置中大小写（如 DroneCrowd）导致匹配失败
+        self.dataset = str(dataset).strip().lower()
         self.data_fold = data_fold
         self.workers = workers
         self.batch_size = batch_size

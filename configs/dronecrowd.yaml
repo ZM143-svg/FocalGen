@@ -6,8 +6,8 @@ restore_from_ckpt: D:\uav-dot-main\checkpoints\dot_pd_dronecrowd_51.00.ckpt
 viz: True
 
 # DATA CONFIGS
-data_path: D:\\merged_dataset
-dataset: merged_yolo_pixel #dronecrowd or dronecrowd-folds
+data_path: C:\ceshi
+dataset: dronecrowd #dronecrowd or merged_yolo_pixel
 data_fold: -1 # -1 for default train/val split else 0-4
 workers: 0
 batch_size: 4
@@ -39,14 +39,14 @@ data_std: [ 0.23425215, 0.2339074,  0.24194536 ]
 scheduler_T_mult: 2
 scheduler_eta_min: 1e-8
 gradient_clip_val: 0.7
-use_dysample: True
+use_dysample: False
 use_dynamic_conv: False
 use_csnorm: True
 csnorm_positions: ['post_encoder_second']
 csnorm_training_mode: 'freeze_all'  # freeze_all 或 fine_tune
 csnorm_epochs: 60  # CSNorm专项训练轮次
 # PD注意力模块配置
-use_pd_attention: True # 是否启用PD注意力模块
+use_pd_attention: False # 是否启用PD注意力模块
 pd_attention_mode: 'multiply'  # 注意力应用模式：multiply 或 adaptive
 pd_attention_dense_thresh: 0.3  # 密集区域阈值
 pd_attention_sparse_thresh: 0.005  # 稀疏区域阈值

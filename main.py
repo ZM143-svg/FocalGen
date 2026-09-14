@@ -147,11 +147,18 @@ def main(cfg: DictConfig) -> None:
                            name='csv_logs',  # 会创建子目录
                            version=None)  # 自动版本号
 
-    if not cfg.debug:
-        neptune_logger = NeptuneLogger(...)
-        logger = [neptune_logger, csv_logger]  # 同时使用 Neptune 和 CSV
-    else:
-        logger = csv_logger  # 调试模式只保留 CSVLogger
+    logger = [csv_logger]
+    # NeptuneLogger 为可选：仅在非 debug 且提供 NEPTUNE_API_TOKEN 时启用
+    if not cfg.debug and os.environ.get('NEPTUNE_API_TOKEN'):
+        neptune_logger = NeptuneLogger(
+            api_key=os.environ['NEPTUNE_API_TOKEN'],
+            project=cfg.get('neptune_project', 'FocalGen/crowd-localization'),
+            log_model_checkpoints=False,
+        )
+        logger.append(neptune_logger)
+        print('检测到 NEPTUNE_API_TOKEN，已启用 NeptuneLogger。')
+    elif not cfg.debug:
+        print('未检测到 NEPTUNE_API_TOKEN，仅使用 CSVLogger 记录日志。')
 
     # if not cfg.debug:
     #     logger = TensorBoardLogger(
