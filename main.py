@@ -34,7 +34,12 @@ def main(cfg: DictConfig) -> None:
         image_size=cfg.image_size,
         mask_size=cfg.mask_size,
         mosaic=cfg.mosaic,
+        image_list=cfg.get('image_list', None),
     )
+
+    # 纯测试数据集（如只有 test_data）没有训练样本，train_steps 会为 0，
+    # 而 CosineAnnealingWarmRestarts 要求 T_0 >= 1，这里做保护性默认值
+    default_T_0 = max(datamodule.get_train_steps() // 4, 1)
 
     if cfg.restore_from_ckpt is not None:
         print(f"从 checkpoint 加载模型权重（不恢复优化器）: {cfg.restore_from_ckpt}")
@@ -53,7 +58,7 @@ def main(cfg: DictConfig) -> None:
             obj_threshold=cfg.obj_threshold,
             image_size=cfg.image_size,
             mask_size=cfg.mask_size,
-            scheduler_T_0=cfg.get('scheduler_T_0', datamodule.get_train_steps() // 4),
+            scheduler_T_0=cfg.get('scheduler_T_0', default_T_0),
             scheduler_T_mult=cfg.get('scheduler_T_mult', 2),
             scheduler_eta_min=cfg.get('scheduler_eta_min', 1e-6),
             use_dysample=cfg.get('use_dysample', False),
@@ -90,7 +95,7 @@ def main(cfg: DictConfig) -> None:
             obj_threshold=cfg.obj_threshold,
             image_size=cfg.image_size,
             mask_size=cfg.mask_size,
-            scheduler_T_0=cfg.get('scheduler_T_0', datamodule.get_train_steps() // 4),
+            scheduler_T_0=cfg.get('scheduler_T_0', default_T_0),
             scheduler_T_mult=cfg.get('scheduler_T_mult', 2),
             scheduler_eta_min=cfg.get('scheduler_eta_min', 1e-6),
             use_dysample=cfg.get('use_dysample', False),
@@ -147,18 +152,11 @@ def main(cfg: DictConfig) -> None:
                            name='csv_logs',  # 会创建子目录
                            version=None)  # 自动版本号
 
-    logger = [csv_logger]
-    # NeptuneLogger 为可选：仅在非 debug 且提供 NEPTUNE_API_TOKEN 时启用
-    if not cfg.debug and os.environ.get('NEPTUNE_API_TOKEN'):
-        neptune_logger = NeptuneLogger(
-            api_key=os.environ['NEPTUNE_API_TOKEN'],
-            project=cfg.get('neptune_project', 'FocalGen/crowd-localization'),
-            log_model_checkpoints=False,
-        )
-        logger.append(neptune_logger)
-        print('检测到 NEPTUNE_API_TOKEN，已启用 NeptuneLogger。')
-    elif not cfg.debug:
-        print('未检测到 NEPTUNE_API_TOKEN，仅使用 CSVLogger 记录日志。')
+    if not cfg.debug:
+        neptune_logger = NeptuneLogger(...)
+        logger = [neptune_logger, csv_logger]  # 同时使用 Neptune 和 CSV
+    else:
+        logger = csv_logger  # 调试模式只保留 CSVLogger
 
     # if not cfg.debug:
     #     logger = TensorBoardLogger(

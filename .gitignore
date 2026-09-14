@@ -6,6 +6,9 @@ checkpoints/
 results/
 infer_results/
 
+# 光照划分结果（由 data/split_by_illumination.py 确定性生成，含机器相关的绝对路径）
+data/splits/
+
 # 大文件 / 权重（GitHub 单文件限制 100MB）
 data/*.zip
 *.zip
