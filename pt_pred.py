@@ -28,7 +28,6 @@ def main(cfg: DictConfig) -> None:
         image_size=cfg.image_size,
         mask_size=cfg.mask_size,
         mosaic=cfg.mosaic,
-        image_list=cfg.get('image_list', None),
     )
 
     if cfg.restore_from_ckpt is None:

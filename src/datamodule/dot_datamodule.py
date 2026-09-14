@@ -26,7 +26,6 @@ class DotDatamodule(LightningDataModule):
                  image_size: Tuple[int, int],
                  mask_size: Tuple[int, int],
                  mosaic: float,
-                 image_list: str = None,
                  ) -> None:
         super().__init__()
 
@@ -41,8 +40,6 @@ class DotDatamodule(LightningDataModule):
         self.image_size = image_size
         self.mask_size = mask_size
         self.mosaic = mosaic
-        # 可选：仅评测该列表中的图像（txt，每行一个路径/文件名），用于光照分组等子集实验
-        self.image_list = image_list
         
         self.save_hyperparameters()
         
@@ -96,11 +93,7 @@ class DotDatamodule(LightningDataModule):
         else:
             print('Invalid dataset name. Exiting...')
             exit()
-
-        # 可选：只评测 image_list 中列出的图像（用于光照分组等子集实验）
-        if self.image_list is not None:
-            test_data = self._filter_by_image_list(test_data, self.image_list)
-
+        
         if self.dataset == 'dronecrowd':
             train_data = sorted(train_data)[::4]
 
@@ -200,42 +193,6 @@ class DotDatamodule(LightningDataModule):
 
     def get_train_steps(self):
         return len(self.train_dataset) // self.batch_size
-
-    @staticmethod
-    def _filter_by_image_list(paths, image_list):
-        """按 image_list 过滤图像路径。
-
-        image_list 可以是 txt 文件路径，或文件名/路径的列表。
-        比较时只取文件名（basename），因此列表里的绝对路径能匹配不同根目录下的数据集。
-        """
-        if isinstance(image_list, (str, Path)):
-            list_path = Path(image_list)
-            if not list_path.is_file():
-                print(f'[image_list] 警告: 找不到文件 {list_path}，使用全部图像')
-                return paths
-            with list_path.open('r', encoding='utf-8') as f:
-                wanted = {Path(line.strip()).name for line in f if line.strip()}
-        else:
-            wanted = {Path(str(x)).name for x in image_list}
-
-        if not wanted:
-            print(f'[image_list] 警告: 列表为空，使用全部 {len(paths)} 张图像')
-            return paths
-
-        filtered = [p for p in paths if Path(p).name in wanted]
-
-        # 列表里可能有图像存在但未被当前数据集扫描到（例如未被 glob 命中）
-        hit_names = {Path(p).name for p in filtered}
-        missing = wanted - hit_names
-
-        print(f'[image_list] 命中 {len(filtered)} / {len(paths)} 张图像')
-        if missing:
-            print(f'[image_list] 警告: 列表中有 {len(missing)} 个文件未在数据集中找到，'
-                  f'示例 {sorted(missing)[:3]}')
-        if not filtered:
-            raise ValueError('[image_list] 过滤后没有任何图像，请检查列表文件与 data_path 是否匹配')
-
-        return filtered
     
     def prepare_splits(self, files_list):
         sequences_list = []

@@ -9,9 +9,6 @@ viz: True
 data_path: C:\ceshi
 dataset: dronecrowd #dronecrowd or merged_yolo_pixel
 data_fold: -1 # -1 for default train/val split else 0-4
-# 可选：只评测该文本中列出的图像（txt，每行一个路径或文件名）
-# 光照分组实验示例: data/splits/normal.txt / data/splits/lowlight.txt
-image_list:
 workers: 0
 batch_size: 4
 image_size: [1920, 1088] # 1080 is padded to 1088
