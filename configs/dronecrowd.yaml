@@ -1,0 +1,59 @@
+# MAIN
+debug: False
+test_only: False
+visualize_test_images: False
+restore_from_ckpt: D:\uav-dot-main\checkpoints\dot_pd_dronecrowd_51.00.ckpt
+viz: True
+
+# DATA CONFIGS
+data_path: D:\\merged_dataset
+dataset: merged_yolo_pixel #dronecrowd or dronecrowd-folds
+data_fold: -1 # -1 for default train/val split else 0-4
+workers: 0
+batch_size: 4
+image_size: [1920, 1088] # 1080 is padded to 1088
+mosaic: 0.8
+
+# MODEL CONFIGS
+input_channels: 3
+output_channels: 1
+encoder_name: mit_b2
+mask_size: [960, 544] # 1/2 of image_size 
+spatial_mode: pixel # interpolate, pixel
+loss: dot # mse, dot
+lr: 4e-4
+obj_threshold: 0.2
+
+# TRAINING CONFIGS
+devices: 1
+precision: 32
+epochs: 100
+monitor: val_f1 # val_loss, val_f1
+monitor_mode: max
+es_patience: 20 # early stopping patience
+
+# DATA STATS
+data_mean: [ 0.38051389, 0.38728308, 0.37517634 ]
+data_std: [ 0.23425215, 0.2339074,  0.24194536 ]
+
+scheduler_T_mult: 2
+scheduler_eta_min: 1e-8
+gradient_clip_val: 0.7
+use_dysample: True
+use_dynamic_conv: False
+use_csnorm: True
+csnorm_positions: ['post_encoder_second']
+csnorm_training_mode: 'freeze_all'  # freeze_all 或 fine_tune
+csnorm_epochs: 60  # CSNorm专项训练轮次
+# PD注意力模块配置
+use_pd_attention: True # 是否启用PD注意力模块
+pd_attention_mode: 'multiply'  # 注意力应用模式：multiply 或 adaptive
+pd_attention_dense_thresh: 0.3  # 密集区域阈值
+pd_attention_sparse_thresh: 0.005  # 稀疏区域阈值
+pd_attention_dense_range: [1.2, 1.6]  # 密集区域软标签范围
+pd_attention_sparse_range: [0.8, 1.2]  # 稀疏区域软标签范围
+pd_attention_background_range: [0.0, 0.2]  # 背景区域软标签范围
+pd_attention_loss_weight: 1.0  # 注意力损失权重
+#pd_attention_training_phase: 'joint'  # 训练阶段：'attention_only', 'joint', 或 'full'
+pd_attention_only_epochs: 0  # 只训练注意力模块的轮次
+freeze_main_net_epochs: 30  # 冻结主网络只训练注意力的轮次
