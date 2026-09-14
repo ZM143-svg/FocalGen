@@ -110,7 +110,8 @@ FocalGen/
 ├── infer_video.py                   # 视频推理（逐帧检测，导出结果视频与坐标 txt）
 ├── configs/
 │   ├── dronecrowd.yaml              # DroneCrowd / 自建数据配置（DySample + SCSN + FTA）
-│   └── upcount.yaml                 # UP-COUNT 数据集配置
+│   ├── upcount.yaml                 # UP-COUNT 数据集配置
+│   └── illumination_test.yaml       # 光照鲁棒性评测预设（test_only + debug）
 ├── src/
 │   ├── datamodule/
 │   │   ├── dot_datamodule.py        # LightningDataModule：数据划分、增强、DataLoader
@@ -134,7 +135,7 @@ FocalGen/
 │       ├── CSNorm.py                # SCSN 软门控通道选择归一化模块
 │       ├── dysample.py              # DySample 动态上采样算子
 │       └── lightness_perturbation.py# 频域 lightness 扰动
-├── data/                            # 预测结果分析 / 对比脚本
+├── data/                            # 光照划分 / 退化生成 / 预测结果分析脚本
 ├── eval_tool/                       # DroneCrowd 官方评测工具（Git submodule）
 ├── assets/                          # README 配图（架构图、模块图）
 ├── requirements.txt
@@ -265,7 +266,7 @@ python main.py --config-name=dronecrowd restore_from_ckpt=/path/to/ckpt.ckpt
 | 梯度裁剪 | `gradient_clip_val=0.7` |
 | 早停 | `EarlyStopping(monitor=val_f1, mode=max, patience=20)` |
 | 模型保存 | `ModelCheckpoint(monitor=val_f1, filename='epoch_{epoch}-f1_{val_f1:.2f}')`，同时保存 `last` |
-| 日志 | CSVLogger（始终启用）；NeptuneLogger 为可选，需设置环境变量 `NEPTUNE_API_TOKEN` 且 `debug=False` |
+| 日志 | CSVLogger（默认）+ NeptuneLogger（`debug=False` 时启用，需自行配置 API Token） |
 
 训练输出（`checkpoints/`、`outputs/`、`results/`）已加入 `.gitignore`。
 
@@ -317,6 +318,78 @@ python infer_video.py --config-name=dronecrowd \
 
 > 这些脚本中的路径为占位示例（`BASE` / `GT_DIR` 等常量），使用前请改为本地实际路径。
 
+**5. 光照鲁棒性评测**
+
+为验证模型在低照度条件下的鲁棒性，提供两条互补的实验路径：
+
+**方案 A — 真实光照分组**（推荐，数据自带的亮暗差异，说服力更强）
+
+用 `data/split_by_illumination.py` 按亮度把测试集分为 *Normal* / *Low illumination* 两组：
+
+```bash
+python data/split_by_illumination.py \
+    --data-path D:/Dronecrowd/test_data --out-dir data/splits --mode kmeans
+```
+
+分组默认按**序列级**亮度（scene-level）划分 —— DroneCrowd 的昼/夜是按序列连续分布的，
+逐帧划分会把同一场景的相邻帧拆到两组，引入场景内容混淆，审稿人可质疑。
+脚本同时输出亮度直方图 `illumination_hist.png` 与阈值/序列清单 `summary.txt`，可直接用于论文。
+
+然后分别评测两组：
+
+```bash
+# Normal illumination
+python main.py --config-name=illumination_test \
+    restore_from_ckpt=/path/to/ckpt.ckpt \
+    data_path=D:/Dronecrowd image_list=data/splits/normal.txt
+
+# Low illumination
+python main.py --config-name=illumination_test \
+    restore_from_ckpt=/path/to/ckpt.ckpt \
+    data_path=D:/Dronecrowd image_list=data/splits/lowlight.txt
+```
+
+**方案 B — 人工光照退化**（控制变量，排除场景/密度等附属变量）
+
+用 `data/make_illumination_degraded.py` 从同一批图像生成不同亮度等级：
+
+```bash
+# 先估算体积（每个 level ≈ 全测试集一份）
+python data/make_illumination_degraded.py --data-path D:/Dronecrowd/test_data --dry-run
+
+# 生成 alpha = 0.8 / 0.6 / 0.4
+python data/make_illumination_degraded.py \
+    --data-path D:/Dronecrowd/test_data --out-dir D:/Dronecrowd_illum \
+    --alphas 0.8 0.6 0.4
+```
+
+每个 level 生成 `<out-dir>/<mode>_a<alpha>/test_data/{images,ground_truth}`，
+其中 `ground_truth` 默认**硬链接**到原始 `.mat`，不占额外空间。直接把 level 目录当作 `data_path`：
+
+```bash
+python main.py --config-name=illumination_test \
+    restore_from_ckpt=/path/to/ckpt.ckpt \
+    data_path=D:/Dronecrowd_illum/spatial_a0.6
+```
+
+> ⚠️ **术语提醒（重要，影响审稿）**
+>
+> 训练阶段的 `LightnessPerturbation` 是在**归一化特征空间**上做频域幅度缩放。
+> 而这里的退化作用在**原始图像**上，两者不是同一件事。
+> 论文中应称其为 **synthetic illumination degradation**，
+> **不要**写成 "frequency-domain perturbation"。
+>
+> 另外，脚本提供 `--modes spatial freq` 两种算子，可用 `--check-modes` 数值自检。
+> 结论是：**频域幅度缩放实质上就是亮度整体缩放**。因为 FFT 是线性变换，
+> 把整个频谱幅度乘以 α 而保持相位不变，完全等价于逐像素乘以 α（`fftshift` 只是置换）。
+> 实测两者在 α ∈ {0.4, 0.6, 0.8, 1.0, 1.5, 2.0} 下输出一致，最大差异 ~1e-4（float32 舍入）。
+> 因此**不需要同时生成两套数据**，默认只生成 `spatial` 即可。
+>
+> ```bash
+> python data/make_illumination_degraded.py \
+>     --data-path D:/Dronecrowd/test_data --out-dir data/splits --check-modes
+> ```
+
 ---
 
 ## 📊 评价指标
@@ -339,6 +412,7 @@ python infer_video.py --config-name=dronecrowd \
 | `data_path` | 数据集根目录 | — |
 | `dataset` | 数据集类型：`merged_yolo_pixel` / `dronecrowd` / `upcount` | — |
 | `data_fold` | 交叉验证折数，`-1` 表示使用默认划分 | `-1` |
+| `image_list` | 只评测该 txt 中列出的图像（每行一个路径或文件名），用于光照分组等子集实验 | `None`（全部） |
 | `image_size` / `mask_size` | 网络输入尺寸 / 热图尺寸（`[W, H]`） | `[1920,1088]` / `[960,544]` |
 | `encoder_name` | 编码器骨干 | `mit_b2` |
 | `spatial_mode` | 下采样方式：`pixel`（PixelDistill）/ `interpolate` / `none` | `pixel` |

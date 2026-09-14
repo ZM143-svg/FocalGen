@@ -1,0 +1,39 @@
+# 光照鲁棒性评测预设
+# =====================================================================
+# 覆盖 configs/dronecrowd.yaml，固定 test_only=True + debug=True
+# （debug=True 时只用 CSVLogger，不初始化 NeptuneLogger）
+#
+# 方案 A —— 真实光照分组（按场景亮度划分测试集，见 data/split_by_illumination.py）
+#   python main.py --config-name=illumination_test \
+#       restore_from_ckpt=/path/to/focalgen.ckpt \
+#       data_path=D:/Dronecrowd \
+#       image_list=data/splits/normal.txt
+#
+#   python main.py --config-name=illumination_test \
+#       restore_from_ckpt=/path/to/focalgen.ckpt \
+#       data_path=D:/Dronecrowd \
+#       image_list=data/splits/lowlight.txt
+#
+# 方案 B —— 人工光照退化（见 data/make_illumination_degraded.py）
+#   先生成退化数据，再直接把生成的 level 目录当作 data_path：
+#   python main.py --config-name=illumination_test \
+#       restore_from_ckpt=/path/to/focalgen.ckpt \
+#       data_path=D:/Dronecrowd_illum/spatial_a0.6
+# =====================================================================
+
+defaults:
+  - dronecrowd
+  - _self_
+
+# MAIN
+test_only: True
+debug: True
+visualize_test_images: False
+
+# DATA CONFIGS
+# 方案 A: 原始测试集 + image_list 子集；方案 B: 退化数据集的 level 目录
+data_path: D:/Dronecrowd
+image_list:
+
+# 评测不需要增强
+mosaic: 0.0
