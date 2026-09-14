@@ -56,6 +56,12 @@ flowchart LR
     C -.->|"软区域监督 + 排序约束"| I["注意力监督损失"]
 ```
 
+<p align="center">
+  <img src="assets/architecture.jpg" alt="FocalGen 整体网络架构" width="100%">
+</p>
+
+<p align="center"><em>图 1：FocalGen 整体网络架构。</em></p>
+
 ### 1️⃣ FTA：前景目标注意力模块（`src/model/dot_model.py` → `PDAttentionModule`）
 
 - **注意力生成**：在 PixelDistill 输出的低分辨率特征上，用轻量卷积（3 → 16 → 32）+ 1×1 卷积 + `Softplus` 生成单通道注意力图，输出范围不受限，避免人为截断。
@@ -67,12 +73,24 @@ flowchart LR
 - **损失权重**：默认 $1.5$（密集）/ $1.5$（稀疏）/ $0.2$（背景）/ $0.1$（排序），可通过 `adaptive_weight=True` 切换为可学习权重。
 - **注意力作用方式**：`multiply`（直接相乘）或 `adaptive`（按注意力强度动态缩放）。
 
+<p align="center">
+  <img src="assets/fta.jpg" alt="FTA 前景目标注意力模块" width="82%">
+</p>
+
+<p align="center"><em>图 2：FTA 前景目标注意力模块。</em></p>
+
 ### 2️⃣ SCSN：软门控通道选择归一化（`src/model/CSNorm.py`）
 
 - 每个通道门控 $g \in [0,1]$ 由 `GAP → 1×1 Conv(C→C/4) → ReLU → Dropout(0.1) → 1×1 Conv(C/4→C) → Sigmoid` 生成，连续可微，无需硬阈值；
 - 输出为软插值：$y = (1-g)\cdot x + g \cdot \mathrm{InstanceNorm}(x)$，等价于"自适应决定每个通道是否执行光照归一化"；
 - 通过 `csnorm_positions` 选择插入位置，当前模型实现支持 **`post_encoder_second`**（编码器第 2 阶段特征之后）；
 - 训练阶段配合**频域 lightness 扰动**（`lightness_perturbation.py`，对 FFT 幅度做随机缩放）与参数冻结策略，缓解光照变化引起的特征分布漂移。
+
+<p align="center">
+  <img src="assets/scsn.jpg" alt="SCSN 软门控通道选择归一化模块" width="82%">
+</p>
+
+<p align="center"><em>图 3：SCSN 软门控通道选择归一化模块。</em></p>
 
 ### 3️⃣ 分阶段协同训练 + DySample
 
@@ -118,7 +136,7 @@ FocalGen/
 │       └── lightness_perturbation.py# 频域 lightness 扰动
 ├── data/                            # 预测结果分析 / 对比脚本
 ├── eval_tool/                       # DroneCrowd 官方评测工具（Git submodule）
-├── assets/                          # README 配图（定性结果等）
+├── assets/                          # README 配图（架构图、模块图）
 ├── requirements.txt
 └── LICENSE
 ```
@@ -396,11 +414,6 @@ python infer_video.py --config-name=dronecrowd \
 
 > **观察：** 对比域内结果（DroneCrowd +3.57%），跨域场景下 FocalGen 的增益（+9.26%）反而更大，说明所提模块学习的是与场景无关的鲁棒表征，而非对训练域过拟合。
 
-![Qualitative results on the newly collected UAV dataset](assets/image3.png)
-
-<p align="center"><em>图 1：自建无人机数据集上的定性结果对比。</em></p>
-
-> 📌 上图使用 `assets/image3.png`，请将图片放入 `assets/` 目录并修正图注（当前图注为占位描述）。
 
 ### 4. 核心模块消融实验（DroneCrowd）
 
@@ -429,7 +442,6 @@ python infer_video.py --config-name=dronecrowd \
 ## ⚠️ 注意事项
 
 - `configs/*.yaml` 中的 `data_path`、`restore_from_ckpt` 为作者本地绝对路径，请在使用前修改；
-- `assets/image3.png` 为定性结果占位图，发布仓库前请将实际图片放入 `assets/` 目录（否则 GitHub 会显示图片破损）；
 - SCSN 当前仅在 `post_encoder_second` 位置生效，配置其他位置不会插入模块；
 - 启用 `use_csnorm` 且 `csnorm_training_mode='freeze_all'` 时，训练轮数由 `csnorm_epochs` 决定（而非 `epochs`）；
 - 启用 SCSN 时学习率会自动乘以 0.1，属于通道归一化专项训练策略。
