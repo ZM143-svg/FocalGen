@@ -3,12 +3,15 @@
 ### A Foreground-Aware Robust Representation Learning Framework for UAV Crowd Localization
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/badge/Release-v1.0-blue.svg)](https://github.com/ZM143-svg/FocalGen/releases/tag/v1.0)
 [![Python](https://img.shields.io/badge/Python-%3E%3D3.8-3776AB.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.1.0-EE4C2C.svg)](https://pytorch.org/)
 [![Lightning](https://img.shields.io/badge/PyTorch--Lightning-2.1.3-792EE5.svg)](https://lightning.ai/)
 [![CUDA](https://img.shields.io/badge/CUDA-11.8-76B900.svg)](https://developer.nvidia.com/cuda-toolkit)
 
 > 官方 PyTorch 实现
+
+> 📦 **权重与数据集下载**：[GitHub Releases v1.0](https://github.com/ZM143-svg/FocalGen/releases/tag/v1.0) ｜ [百度网盘（无需提取码）](https://pan.baidu.com/s/5iZAiqSyvR3WKk-KXpVgEdQ)，详见 [数据集与模型权重](#-数据集与模型权重)。
 
 ## 🔍 项目简介
 无人机（UAV）航拍人群定位是公共安全监控、城市人群管理、应急响应等场景的核心基础任务。针对航拍图像中行人目标极小、背景干扰严重、光照变化剧烈导致特征表征鲁棒性差、定位精度低的问题，本文提出了 **FocalGen** 前景感知鲁棒表征学习框架。
@@ -134,7 +137,7 @@ FocalGen/
 │       ├── CSNorm.py                # SCSN 软门控通道选择归一化模块
 │       ├── dysample.py              # DySample 动态上采样算子
 │       └── lightness_perturbation.py# 频域 lightness 扰动
-├── data/                            # 预测结果分析 / 对比脚本
+├── data/                            # 数据集准备 / 预测结果分析脚本
 ├── eval_tool/                       # DroneCrowd 官方评测工具（Git submodule）
 ├── assets/                          # README 配图（架构图、模块图）
 ├── requirements.txt
@@ -178,6 +181,101 @@ pip install -r requirements.txt
 
 ---
 
+## 📥 数据集与模型权重
+
+代码与配置文件通过本仓库分发；**自建数据集**与**模型权重**体积较大（超过 GitHub 单文件 100 MB 限制），
+通过 **GitHub Releases** 与 **百度网盘** 双通道发布。权重文件名与训练产出一致，下载后**无需改名**即可直接使用。
+
+### 发布文件（Assets）
+
+| 文件 | 大小 | 说明 |
+| --- | --- | --- |
+| `Real-world-dataset.zip` | 116 MB | 自建无人机数据集（**原始标注**）：12 个序列 `dataset1/` … `dataset12/`、共 128 张 1920×1080 图像；每序列含 `images/`、`yolo_labels/`（YOLO 归一化 `x y w h`，类别 `Person head`）、`_annotations.coco.json`；测试前需按 [数据集格式转换](#数据集格式转换) 转成 `merged_yolo_pixel` |
+| `FocalGen_DroneCrowd.ckpt` | 105 MB | **完整模型**（FTA + SCSN + DySample），DroneCrowd L-mAP **54.57%** |
+| `FocalGen_Upcount.ckpt` | 105 MB | **完整模型**（FTA + SCSN + DySample），UP-COUNT L-mAP **68.96%** |
+| `FocalGen_onlyFTA_DroneCrowd.ckpt` | 131 MB | 消融：仅 FTA（`use_pd_attention=True`），DroneCrowd L-mAP 52.58% |
+| `FocalGen_onlySCSN_DroneCrowd.ckpt` | 105 MB | 消融：仅 SCSN（`use_csnorm=True`），DroneCrowd L-mAP 52.57% |
+| `FocalGen_onlyDysample_DroneCrowd.ckpt` | 316 MB | 消融：仅 DySample（`use_dysample=True`），DroneCrowd L-mAP 52.88% |
+| `dot_pd_dronecrowd_51.00.ckpt` | 315 MB | Uav-Dot 基线权重（无 FTA / SCSN / DySample），DroneCrowd L-mAP 51.00% |
+| `dot_pd_upcount_66.49.ckpt` | 315 MB | Uav-Dot 基线权重（无 FTA / SCSN / DySample），UP-COUNT L-mAP 66.49% |
+
+> - `checkpoints.zip` 解压后得到 `checkpoints/` 目录，内含上表 5 个 **FocalGen** 权重（已逐项核对）；
+> - 所有权重均为 **MiT-B2 + U-Net** 结构、约 **27.5 M 参数**，体积差异来自 checkpoint 内保存的优化器状态；
+> - 消融权重与 [实验结果 §4 消融表](#4-核心模块消融实验dronecrowd) 中的单模块配置一一对应；
+> - Uav-Dot 基线的 2 个权重沿用上游 `uav-dot-track-main/checkpoints/` 的文件名，体积较大（各 315 MB），未包含在 `checkpoints.zip` 内。
+
+**下载地址 1：GitHub Releases**（推荐，可直接校验哈希，支持断点续传）
+
+发布页：<https://github.com/ZM143-svg/FocalGen/releases/tag/v1.0>
+
+| 压缩包 | 大小 | 直链 | SHA-256 |
+| --- | --- | --- | --- |
+| `checkpoints.zip` | 704 MB | [releases/download/v1.0/checkpoints.zip](https://github.com/ZM143-svg/FocalGen/releases/download/v1.0/checkpoints.zip) | `87ab9136b92eb5115c9a701d358e55134e9041e5d423eaca7243ee5b841fd7bc` |
+| `Real-world-dataset.zip` | 116 MB | [releases/download/v1.0/Real-world-dataset.zip](https://github.com/ZM143-svg/FocalGen/releases/download/v1.0/Real-world-dataset.zip) | `129862d83db6d15bed4e007e6926e4969c8f94d594bce6558ecd5f47494b56e6` |
+
+下载后校验（可选）：
+
+```bash
+# Linux / macOS
+sha256sum checkpoints.zip
+
+# Windows PowerShell
+Get-FileHash .\checkpoints.zip -Algorithm SHA256
+```
+
+> `checkpoints.zip` 解压后即为上表 5 个 FocalGen 权重（直接得到 `*.ckpt`）。
+
+**下载地址 2：百度网盘**（备用镜像，**无需提取码**，永久有效）
+
+<https://pan.baidu.com/s/5iZAiqSyvR3WKk-KXpVgEdQ>
+
+网盘分享目录结构：
+
+```
+Focalgen/
+├── checkpoint/
+│   └── checkpoints.zip         # FocalGen 权重（704.5 MB，解压后即为上表 5 个 .ckpt）
+└── Real-world-dataset.zip      # 自建无人机数据集（115.6 MB）
+```
+
+### 使用方式
+
+下载后把 `data_path` / `restore_from_ckpt` 指向实际位置即可。由于 `main.py` 通过
+`DotRegressor.load_from_checkpoint()` 载入，权重中保存的超参数（FTA / SCSN / DySample 开关、`obj_threshold` 等）会一并恢复，
+因此**所有变体权重共用同一条命令**，只需替换 `restore_from_ckpt`：
+
+```bash
+# 1) 完整模型 + 自建数据集：跨场景泛化实验（见 实验结果 §3）
+#    /path/to/Real-world-dataset 需先由 Real-world-dataset.zip 转换得到（见 数据集格式转换）
+python main.py --config-name=dronecrowd \
+    data_path=/path/to/Real-world-dataset \
+    test_only=True debug=True \
+    restore_from_ckpt=/path/to/FocalGen_DroneCrowd.ckpt
+
+# 2) 消融权重：换成对应文件即可（onlyFTA / onlySCSN / onlyDysample / 基线）
+python main.py --config-name=dronecrowd \
+    data_path=/path/to/DroneCrowd/test_data \
+    test_only=True debug=True \
+    restore_from_ckpt=/path/to/FocalGen_onlyFTA_DroneCrowd.ckpt
+
+# 3) 权重推理 / 导出预测点
+python pt_pred.py --config-name=dronecrowd \
+    data_path=/path/to/dataset \
+    restore_from_ckpt=/path/to/FocalGen_DroneCrowd.ckpt
+```
+
+> UP-COUNT 权重请改用 `--config-name=upcount` + `restore_from_ckpt=/path/to/FocalGen_Upcount.ckpt`。
+
+> **自建数据集目录结构**（`merged_yolo_pixel` 格式，标注为每行 `x y` 的像素坐标，由 `Real-world-dataset.zip` 转换得到，见 [数据集格式转换](#数据集格式转换)）：
+>
+> ```
+> Real-world-dataset/
+> ├── images/               # *.jpg
+> └── ground_truth/         # *.txt，与 images 同名，每行 "x y"
+> ```
+
+---
+
 ## 🗂️ 数据准备
 
 `src/datamodule/dot_datamodule.py` 内置三种数据集格式，通过配置项 `dataset` 切换。
@@ -195,6 +293,38 @@ pip install -r requirements.txt
     ├── dataset1_frame_00001.txt    # 每行：x y（像素坐标，空格/换行分隔）
     └── ...
 ```
+
+### 数据集格式转换
+
+`Real-world-dataset.zip` 里是**按序列分目录的原始标注**（YOLO + COCO），与上面的 `merged_yolo_pixel` 布局不同，
+仓库提供了转换脚本 [`data/prepare_real_world_dataset.py`](data/prepare_real_world_dataset.py)：
+
+```bash
+# 推荐：标注直接用仓库自带的 data/ground_truth（与论文完全一致），图片从 zip 提取并重命名
+python data/prepare_real_world_dataset.py --zip data/Real-world-dataset.zip \
+    --out D:/Real-world-dataset --gt-dir data/ground_truth
+```
+
+输出：
+
+```
+D:/Real-world-dataset/
+├── images/               # datasetX_frame_YYYYY.jpg（128 张，从 zip 提取并重命名）
+└── ground_truth/         # datasetX_frame_YYYYY.txt（每行 "x y"）
+```
+
+| zip 内 | 转换后 |
+| --- | --- |
+| `datasetX/images/frame_YYYYY.jpg` | `images/datasetX_frame_YYYYY.jpg` |
+| `datasetX/yolo_labels/frame_YYYYY.txt`（归一化 `cx cy w h`） | `ground_truth/datasetX_frame_YYYYY.txt`（`x y` = 框中心像素坐标 `floor(cx·W) floor(cy·H)`） |
+| `datasetX/_annotations.coco.json` | 仅用于取图像宽高（文件本身保留在 zip 内，供 YOLO / COCO 训练使用） |
+
+常用参数：`--src <已解压目录>`（不用 zip 而用已解压的序列目录）、`--no-images`（只生成标注）、
+`--dry-run`（只统计不写文件）；图片默认**硬链接**（同盘瞬时完成，不占额外空间）。
+
+> 不加 `--gt-dir` 时脚本会用 YOLO 标签自行换算标注，与仓库 `data/ground_truth/` 相比
+> **128 个文件里 98 个逐字节相同，其余 30 个各有 1 个点相差 1px**（YOLO 坐标只有 6 位小数，边界取整所致）；
+> 要精确复现论文中的跨场景数字，请加上 `--gt-dir data/ground_truth`（仓库已附带这 128 个标注文件）。
 
 **2. `dronecrowd`（DroneCrowd 数据集）**
 
@@ -307,15 +437,17 @@ python infer_video.py --config-name=dronecrowd \
 - `./infer_results/pred_<video_name>.avi`：标注了预测点的结果视频
 - `./infer_results/pred_<video_name>.txt`：逐帧坐标，格式为 `frame_id,x,y`
 
-**4. 结果分析脚本（`data/`）**
+**4. 数据准备与分析脚本（`data/`）**
 
 | 脚本 | 作用 |
 | --- | --- |
+| `prepare_real_world_dataset.py` | 将 `Real-world-dataset.zip` 的原始标注转换成 `merged_yolo_pixel` 布局（见 [数据集格式转换](#数据集格式转换)），支持 `--gt-dir` 复用仓库自带标注 |
+| `split_illumination.py` | 按序列平均亮度把测试集拆成低光 / 正常两组，用于光照鲁棒性实验 |
 | `analyze_correct_compare.py` | 对比不同版本预测与 GT 的匹配情况，输出 recall / precision / F1 / 平均匹配距离，定位变好与变差的帧 |
 | `analyze_viz_compare.py` | 两版预测结果的可视化对比 |
 | `analyze_viz_probe.py` | 单帧预测探针可视化 |
 
-> 这些脚本中的路径为占位示例（`BASE` / `GT_DIR` 等常量），使用前请改为本地实际路径。
+> 除 `prepare_real_world_dataset.py` 外，其余脚本中的路径为占位示例（`BASE` / `GT_DIR` 等常量），使用前请改为本地实际路径。
 
 ---
 
@@ -435,7 +567,7 @@ python infer_video.py --config-name=dronecrowd \
 - SCSN 与 DySample 组合（54.02%）增益最大，二者在通道稳定性与空间细节恢复上互补；
 - 三者协同使用时取得最佳性能（54.57%），且 L-AP@20 相比基线提升近 5 个百分点，验证了模块间良好的互补性。
 
-预训练权重：*（待发布）*
+预训练权重见 [📥 数据集与模型权重](#-数据集与模型权重)。
 
 ---
 
