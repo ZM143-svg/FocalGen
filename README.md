@@ -599,6 +599,7 @@ python infer_video.py --config-name=dronecrowd \
 
 本项目的部分实现参考了以下开源工作，特此致谢：
 
+- [Uav-Dot](https://github.com/up-count/uav-dot)：**本工作的基线方法**，FocalGen 以其 MiT-B2 + U-Net 点定位网络为基础框架，并在其提供的数据集配置与评测流程之上进行改进；其开源代码为本文的对比实验与消融实验提供了重要参考
 - [segmentation_models_pytorch](https://github.com/qubvel/segmentation_models.pytorch)：编码器 / 解码器与分割头实现
 - [DySample](https://github.com/tiny-smart/dysample)：动态上采样算子
 - [CenterNet](https://github.com/xingyizhou/CenterNet)：负样本（focal）损失
